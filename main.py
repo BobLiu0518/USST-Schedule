@@ -1,7 +1,8 @@
-from helium import *
-import base64
+import json
 import time
+import base64
 import requests
+from helium import *
 
 
 def sendMsg(qqUserId, msg):
@@ -14,12 +15,12 @@ def sendMsg(qqUserId, msg):
     requests.post(api, json=data)
 
 
-with open('username.txt', 'r') as f:
-    username = f.read().strip()
-with open('password.txt', 'r') as f:
-    password = base64.b64decode(f.read().strip()).decode('utf-8')
-with open('qqUserId.txt', 'r') as f:
-    qqUserId = f.read().strip()
+with open('config.json', 'r') as f:
+    config = json.load(f)
+    username = config['username']
+    password = base64.b64decode(config['password']).decode('utf-8')
+    qqUserId = config['qqUserId']
+
 driver = start_chrome('http://jwgl.usst.edu.cn/sso/jziotlogin')
 
 wait_until(Button('登录').exists)
@@ -33,13 +34,17 @@ click('个人课表查询')
 
 wait_until(Button('查询').exists)
 while True:
-    click('查询')
     wait_until(S('#table1').exists)
     if (not S('.nodata').exists()):
-        get_driver().save_screenshot('schedule.png')
-        with open('schedule.png', 'rb') as f:
-            img = base64.b64encode(f.read()).decode('utf-8')
-            sendMsg(qqUserId, f'课表安排已出：[CQ:image,file=base64://{img}]')
+        sendMsg(qqUserId, '课表安排已出')
+        click('列表')
+        time.sleep(1)
+        img = get_driver().execute_cdp_cmd('Page.captureScreenshot', {
+            'format': 'png',
+            'captureBeyondViewport': True,
+        })['data']
+        sendMsg(qqUserId, f'[CQ:image,file=base64://{img}]')
         kill_browser()
         exit()
     time.sleep(5)
+    click('查询')
